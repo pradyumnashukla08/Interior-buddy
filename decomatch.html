@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decomatch Pro - AI Powered Design Suite</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDVa6yx4IPPzEIC9FLo0de_IAGL1tKUDRk"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Import Google Generative AI -->
+    <script type="importmap">
+      {
+        "imports": {
+          "@google/generative-ai": "https://esm.run/@google/generative-ai"
+        }
+      }
+    </script>
+
+    <script>
+        // FIX: Ensure tailwind object exists before configuring to prevent ReferenceError
+        window.tailwind = window.tailwind || {};
+        
+        window.tailwind.config = {
+            darkMode: 'class', // Enable class-based dark mode
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    },
+                    animation: {
+                        'fade-in-up': 'fadeInUp 0.5s ease-out forwards',
+                        'slide-in': 'slideIn 0.3s ease-out forwards',
+                        'slide-up': 'slideUp 0.3s ease-out forwards',
+                        'pulse-slow': 'pulse 3s infinite',
+                    },
+                    keyframes: {
+                        fadeInUp: {
+                            "0%": { opacity: "0", transform: "translateY(20px)" },
+                            "100%": { opacity: "1", transform: "translateY(0)" }
+                        },
+                        slideIn: {
+                            "0%": { transform: "translateX(100%)" },
+                            "100%": { transform: "translateX(0)" }
+                        },
+                        slideUp: {
+                            "0%": { transform: "translateY(100%)" },
+                            "100%": { transform: "translateY(0)" }
+                        }
+                    },
+                    colors: {
+                        primary: "#4f46e5",
+                        ai: "#8b5cf6", 
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+        }
+        .ai-gradient {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+        }
+        .ai-text {
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-slate-900 font-sans antialiased flex flex-col min-h-screen">
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'https://esm.sh/react@18.2.0';
+        import { createRoot } from 'https://esm.sh/react-dom@18.2.0/client';
+        import { GoogleGenerativeAI } from "@google/generative-ai";
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+        // FIX: Added ?deps=react@18.2.0,react-dom@18.2.0 to ensure Framer Motion uses the same React instance
+        import { motion, AnimatePresence } from 'https://esm.sh/framer-motion@10.16.4?deps=react@18.2.0,react-dom@18.2.0';
+        import { 
+            Star, CheckCircle, Calendar, MapPin, X, ArrowRight, Heart, 
+            Briefcase, UserCircle, LogOut, DollarSign, LayoutDashboard, 
+            AlertCircle, Loader2, Clock, ShieldCheck, Mail, Lock, Upload,
+            Sparkles, Search, SlidersHorizontal, Bot, Zap, Crown, Split,
+            Calculator, BarChart3, MessageSquare, Image as ImageIcon, Wand2, RefreshCw,
+            Facebook, Twitter, Instagram, Linkedin, Globe, ThumbsUp, Moon, Sun,
+            Menu, Settings, HelpCircle, FileText, Lightbulb
+        } from 'https://esm.sh/lucide-react@0.263.1?bundle';
+
+        // --- Configuration ---
+        const apiKey = "AIzaSyBcUzzGKmBWiex6nRl0SnKpGnj6Zltl64Y"; 
+        const supabaseUrl = 'https://xonoccifnzurifokldbp.supabase.co'; 
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhvbm9jY2lmbnp1cmlmb2tsZGJwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzMzg2NDgsImV4cCI6MjA3OTkxNDY0OH0.EEnet2vkx7DKHb0EVDpxfFhzWwcQ5SGA8oCy1AkvgRI';
+        
+        const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
+        const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+
+        // --- Mock Data ---
+        const CITIES = ["New York, NY", "London, UK", "Paris, France", "Austin, TX", "Toronto, ON", "Los Angeles, CA", "Berlin, DE"];
+        const STYLES = ["Modern Luxury", "Industrial", "Bohemian", "Scandinavian", "Mid-Century", "Japandi", "Cyberpunk", "Rustic"];
+        
+        const IMAGE_IDS = [
+            '1618221195710-dd6b41faaea6', '1616486338812-3dadae4b4f9d', '1616137466211-f939a71247d5',
+            '1618220179428-22790b461013', '1615873968403-89e061852b2c', '1600210492486-724fe5c67fb0',
+            '1600607687939-ce8a6c25118c', '1600585154340-be6161a56a0c', '1600566753190-17f0baa2a6b3'
+        ];
+
+        const getRealImage = (index) => `https://images.unsplash.com/photo-${IMAGE_IDS[index % IMAGE_IDS.length]}?auto=format&fit=crop&q=80&w=800&h=600`;
+
+        const generateDesigners = (count) => {
+            return Array.from({ length: count }, (_, i) => ({
+                id: i + 1,
+                realName: `Designer ${i+1}`, 
+                age: 25 + Math.floor(Math.random() * 25),
+                experienceYears: Math.floor(Math.random() * 15) + 2,
+                style: STYLES[Math.floor(Math.random() * STYLES.length)],
+                rating: (4.0 + Math.random()).toFixed(1),
+                reviews: Math.floor(Math.random() * 300) + 20,
+                location: CITIES[Math.floor(Math.random() * CITIES.length)],
+                hourlyRate: Math.floor(Math.random() * 150) + 75,
+                fullDesignFee: (Math.floor(Math.random() * 5) + 2) * 1000,
+                totalSupport: Math.random() > 0.5 ? "Unlimited Revisions" : "3 Rounds of Revisions",
+                totalProjects: Math.floor(Math.random() * 150) + 12,
+                availabilityStatus: Math.random() > 0.8 ? "Busy" : "Available",
+                avatar: `https://i.pravatar.cc/150?u=${i + 50}`,
+                cover: getRealImage(i),
+                portfolio: [getRealImage(i+3), getRealImage(i+4), getRealImage(i+5), getRealImage(i+6)],
+                verified: Math.random() > 0.4,
+                bio: `Creative professional with a focus on ${STYLES[Math.floor(Math.random() * STYLES.length)]} aesthetics. My goal is to bring your vision to life through thoughtful planning and execution.`
+            }));
+        };
+
+        const INITIAL_DESIGNERS = generateDesigners(16);
+
+        // --- Animation Variants ---
+        const fadeIn = {
+            hidden: { opacity: 0, y: 20 },
+            visible: { opacity: 1, y: 0, transition: { duration: 0.4 } }
+        };
+
+        const staggerContainer = {
+            hidden: { opacity: 0 },
+            visible: {
+                opacity: 1,
+                transition: {
+                    staggerChildren: 0.1
+                }
+            }
+        };
+
+        const modalVariant = {
+            hidden: { opacity: 0, scale: 0.95 },
+            visible: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 300, damping: 30 } },
+            exit: { opacity: 0, scale: 0.95, transition: { duration: 0.2 } }
+        };
+
+        // --- Common Components ---
+
+        const Modal = ({ isOpen, onClose, title, children, maxWidth = "max-w-lg", zIndex = "z-[100]" }) => {
+            if (!isOpen) return null;
+            return (
+                <div className={`fixed inset-0 ${zIndex} flex items-center justify-center p-4`}>
+                    <motion.div 
+                        initial={{ opacity: 0 }} 
+                        animate={{ opacity: 1 }} 
+                        exit={{ opacity: 0 }}
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
+                        onClick={onClose}
+                    />
+                    <motion.div 
+                        variants={modalVariant}
+                        initial="hidden"
+                        animate="visible"
+                        exit="exit"
+                        className={`relative bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full ${maxWidth} overflow-hidden flex flex-col max-h-[90vh] border border-gray-100 dark:border-slate-800`}
+                    >
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-slate-800 shrink-0">
+                            <h3 className="text-xl font-bold dark:text-white">{title}</h3>
+                            <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors dark:text-gray-400"><X className="w-5 h-5"/></button>
+                        </div>
+                        <div className="overflow-y-auto custom-scrollbar flex-1 p-6">
+                            {children}
+                        </div>
+                    </motion.div>
+                </div>
+            );
+        };
+
+        const Toast = ({ message, type = 'success' }) => (
+            <motion.div 
+                initial={{ y: 50, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 50, opacity: 0 }}
+                className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-gray-900 dark:bg-slate-800 dark:border dark:border-slate-700 text-white px-6 py-3 rounded-full shadow-2xl z-[200] flex items-center gap-3"
+            >
+                {type === 'error' ? <AlertCircle className="w-5 h-5 text-red-400" /> : <CheckCircle className="w-5 h-5 text-green-400" />}
+                <span className="font-medium text-sm">{message}</span>
+            </motion.div>
+        );
+
+        // --- Review Modal ---
+        const ReviewModal = ({ isOpen, onClose, designer, onSubmit }) => {
+            const [rating, setRating] = useState(0);
+            const [comment, setComment] = useState("");
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (rating === 0) return;
+                onSubmit(designer.id, rating, comment);
+                setRating(0);
+                setComment("");
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title={`Rate ${designer?.realName}`} zIndex="z-[150]"> 
+                    <form onSubmit={handleSubmit} className="text-center space-y-6">
+                        <div className="bg-gray-50 dark:bg-slate-800 p-4 rounded-2xl inline-block">
+                            <img src={designer?.avatar} className="w-16 h-16 rounded-full mx-auto mb-2 border-2 border-white dark:border-slate-700 shadow-sm" />
+                            <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">How was your experience?</p>
+                        </div>
+
+                        <div className="flex justify-center gap-2">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                                <motion.button
+                                    key={star}
+                                    type="button"
+                                    whileHover={{ scale: 1.2 }}
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => setRating(star)}
+                                    className={`transition-colors ${rating >= star ? 'text-yellow-400' : 'text-gray-200 dark:text-slate-700'}`}
+                                >
+                                    <Star className={`w-10 h-10 ${rating >= star ? 'fill-current' : 'fill-none'}`} strokeWidth={1.5} />
+                                </motion.button>
+                            ))}
+                        </div>
+                        <p className="text-indigo-600 dark:text-indigo-400 font-bold h-6">{rating > 0 ? (rating === 5 ? "Excellent!" : rating > 3 ? "Good" : "Thanks for feedback") : ""}</p>
+                        
+                        <textarea
+                            className="w-full p-4 bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-xl outline-none focus:border-indigo-500 focus:bg-white dark:focus:bg-slate-800 transition-colors h-32 resize-none dark:text-white"
+                            placeholder="Share details about your collaboration (optional)..."
+                            value={comment}
+                            onChange={(e) => setComment(e.target.value)}
+                        ></textarea>
+
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" disabled={rating === 0} className={`w-full py-3 rounded-xl font-bold text-white shadow-lg ${rating > 0 ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-300 dark:bg-slate-700 cursor-not-allowed shadow-none'}`}>
+                            Submit Review
+                        </motion.button>
+                    </form>
+                </Modal>
+            );
+        };
+
+        // --- Auth Modal ---
+        const AuthModal = ({ isOpen, onClose, onLogin }) => {
+            const [mode, setMode] = useState('login'); 
+            const [formData, setFormData] = useState({ 
+                email: '', password: '', name: '', 
+                hourlyRate: '', age: '', experience: '', bio: '', totalProjects: '' 
+            });
+            const [portfolioFiles, setPortfolioFiles] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const fileInputRef = useRef(null);
+
+            const handleFileChange = (e) => {
+                if (e.target.files) {
+                    const files = Array.from(e.target.files);
+                    const fileUrls = files.map(file => URL.createObjectURL(file));
+                    setPortfolioFiles(prev => [...prev, ...fileUrls]);
+                }
+            };
+
+            const removeFile = (index) => {
+                setPortfolioFiles(prev => prev.filter((_, i) => i !== index));
+            };
+
+            const handleLoginSubmit = async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+                
+                if (supabase) {
+                    const { data, error } = await supabase.auth.signInWithPassword({
+                        email: formData.email,
+                        password: formData.password,
+                    });
+                    
+                    if (error) {
+                        setError(error.message);
+                        setLoading(false);
+                    } else {
+                        const { data: designerData } = await supabase
+                            .from('designers')
+                            .select('*')
+                            .eq('id', data.user.id)
+                            .single();
+                        
+                        let clientData = null;
+                        if (!designerData) {
+                            const { data: profile } = await supabase
+                                .from('profiles')
+                                .select('*')
+                                .eq('id', data.user.id)
+                                .single();
+                            clientData = profile;
+
+                            if (!clientData) {
+                                const { data: newProfile, error: createError } = await supabase
+                                    .from('profiles')
+                                    .upsert([{
+                                        id: data.user.id,
+                                        full_name: data.user.user_metadata.full_name || 'Valued Client',
+                                        role: 'client',
+                                        avatar_url: `https://i.pravatar.cc/150?u=${data.user.id}`
+                                    }])
+                                    .select()
+                                    .single();
+                                
+                                if (!createError && newProfile) {
+                                    clientData = newProfile;
+                                }
+                            }
+                        }
+                            
+                        const userData = {
+                            id: data.user.id,
+                            realName: designerData ? designerData.real_name : (clientData ? clientData.full_name : (data.user.user_metadata.full_name || 'User')),
+                            role: designerData ? 'designer' : (clientData ? clientData.role : 'client'),
+                            email: data.user.email,
+                            avatar: designerData?.avatar || clientData?.avatar_url || `https://i.pravatar.cc/150?u=${data.user.id}`,
+                            ...designerData 
+                        };
+                        
+                        onLogin(userData);
+                    }
+                } else {
+                    setTimeout(() => {
+                        onLogin({ realName: 'Returning User', role: 'client', avatar: 'https://i.pravatar.cc/150?u=me' });
+                    }, 1000);
+                }
+            };
+
+            const handleSignupSubmit = (role) => async (e) => {
+                e.preventDefault();
+                setLoading(true);
+                setError('');
+
+                const finalPortfolio = portfolioFiles.length > 0 ? portfolioFiles : [getRealImage(11), getRealImage(12)];
+
+                if (supabase) {
+                    const { data, error } = await supabase.auth.signUp({
+                        email: formData.email,
+                        password: formData.password,
+                        options: {
+                            data: { full_name: formData.name, role: role }
+                        }
+                    });
+
+                    if (error) {
+                        setError(error.message);
+                        setLoading(false);
+                        return;
+                    }
+
+                    if (data.user && !data.session) {
+                        setError("Action Required: Please disable 'Confirm Email' in your Supabase Dashboard to proceed instantly.");
+                        setLoading(false);
+                        return;
+                    }
+
+                    if (data.session) {
+                        const { error: profileError } = await supabase
+                            .from('profiles')
+                            .upsert([{
+                                id: data.user.id,
+                                full_name: formData.name,
+                                role: role,
+                                avatar_url: `https://i.pravatar.cc/150?u=${data.user.id}`
+                            }]);
+                        
+                        if (profileError) console.error("Profile Insert Error:", profileError);
+
+                        if (role === 'designer') {
+                            const { error: dbError } = await supabase
+                                .from('designers')
+                                .insert([
+                                    {
+                                        id: data.user.id,
+                                        real_name: formData.name,
+                                        role: 'designer',
+                                        hourly_rate: formData.hourlyRate || 100,
+                                        age: formData.age || 30,
+                                        experience_years: formData.experience || 1,
+                                        bio: formData.bio,
+                                        total_projects: formData.totalProjects || 0,
+                                        full_design_fee: (formData.hourlyRate || 100) * 40,
+                                        style: 'Modern', 
+                                        location: 'Remote',
+                                        avatar: `https://i.pravatar.cc/150?u=${data.user.id}`,
+                                        cover: getRealImage(10), 
+                                        portfolio: finalPortfolio 
+                                    }
+                                ]);
+                            
+                            if (dbError) console.error("Designer DB Insert Error", dbError);
+                        }
+                    }
+
+                    const newUser = {
+                        id: data.user.id,
+                        realName: formData.name,
+                        role: role,
+                        email: formData.email,
+                        avatar: `https://i.pravatar.cc/150?u=${data.user.id}`,
+                        ...(role === 'designer' ? {
+                            hourlyRate: formData.hourlyRate,
+                            age: formData.age,
+                            experienceYears: formData.experience,
+                            bio: formData.bio,
+                            totalProjects: formData.totalProjects,
+                            fullDesignFee: (formData.hourlyRate || 100) * 40,
+                            style: 'Modern', rating: 'New', reviews: 0, location: 'Remote',
+                            cover: getRealImage(10), portfolio: finalPortfolio, verified: false
+                        } : {})
+                    };
+                    onLogin(newUser);
+
+                } else {
+                    const newUser = {
+                        id: 9999,
+                        realName: formData.name || 'New User',
+                        role: role,
+                        avatar: `https://i.pravatar.cc/150?u=${Math.random()}`,
+                        hourlyRate: formData.hourlyRate || 100,
+                        age: formData.age || 25,
+                        experienceYears: formData.experience || 1,
+                        bio: formData.bio || 'Passionate designer ready to work.',
+                        totalProjects: formData.totalProjects || 0,
+                        fullDesignFee: (formData.hourlyRate || 100) * 40,
+                        style: 'Modern', rating: 'New', reviews: 0, 
+                        location: 'Remote', 
+                        cover: getRealImage(10), portfolio: finalPortfolio,
+                        verified: false
+                    };
+                    onLogin(newUser);
+                }
+            };
+
+            const Input = ({ label, type="text", placeholder, value, onChange, required }) => (
+                <div className="mb-4">
+                    <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">{label}</label>
+                    <input 
+                        type={type} 
+                        className="w-full p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white outline-none focus:border-indigo-500" 
+                        placeholder={placeholder} 
+                        value={value} 
+                        onChange={onChange} 
+                        required={required} 
+                    />
+                </div>
+            );
+
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title={mode === 'login' ? "Welcome Back" : "Join Decomatch"} maxWidth={mode === 'signup-designer' ? "max-w-2xl" : "max-w-md"}>
+                    {error && <div className={`p-3 rounded-lg mb-4 text-sm font-bold ${error.includes("Success") ? "bg-green-50 text-green-600" : "bg-red-50 text-red-500"}`}>{error}</div>}
+                    
+                    {mode === 'login' && (
+                        <form onSubmit={handleLoginSubmit}>
+                            <Input label="Email" type="email" placeholder="you@example.com" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+                            <Input label="Password" type="password" placeholder="••••••••" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading} className="w-full py-3 bg-gray-900 dark:bg-indigo-600 text-white rounded-xl font-bold hover:bg-gray-800 dark:hover:bg-indigo-700 disabled:opacity-50">
+                                {loading ? 'Logging in...' : 'Log In'}
+                            </motion.button>
+                            <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+                                Don't have an account? <button type="button" onClick={() => setMode('select-role')} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Sign Up</button>
+                            </div>
+                        </form>
+                    )}
+
+                    {mode === 'select-role' && (
+                        <div className="space-y-4">
+                            <motion.button whileHover={{ scale: 1.02 }} onClick={() => setMode('signup-client')} className="w-full p-4 border-2 border-gray-100 dark:border-slate-700 rounded-2xl hover:border-indigo-500 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 flex items-center gap-4 transition-all text-left group">
+                                <div className="w-12 h-12 bg-indigo-100 dark:bg-indigo-900/50 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 group-hover:scale-110 transition-transform"><UserCircle className="w-6 h-6"/></div>
+                                <div>
+                                    <div className="font-bold text-lg dark:text-white">I'm a Client</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">I want to hire designers</div>
+                                </div>
+                            </motion.button>
+                            <motion.button whileHover={{ scale: 1.02 }} onClick={() => setMode('signup-designer')} className="w-full p-4 border-2 border-gray-100 dark:border-slate-700 rounded-2xl hover:border-purple-500 dark:hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/30 flex items-center gap-4 transition-all text-left group">
+                                <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/50 rounded-full flex items-center justify-center text-purple-600 dark:text-purple-400 group-hover:scale-110 transition-transform"><Briefcase className="w-6 h-6"/></div>
+                                <div>
+                                    <div className="font-bold text-lg dark:text-white">I'm a Designer</div>
+                                    <div className="text-sm text-gray-500 dark:text-gray-400">I want to find work</div>
+                                </div>
+                            </motion.button>
+                            <div className="text-center text-sm text-gray-500 dark:text-gray-400 mt-4">
+                                <button type="button" onClick={() => setMode('login')} className="hover:text-gray-900 dark:hover:text-white">Back to Login</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {mode === 'signup-client' && (
+                        <form onSubmit={handleSignupSubmit('client')}>
+                            <h4 className="font-bold text-lg mb-4 dark:text-white">Create Client Account</h4>
+                            <Input label="Full Name" placeholder="Full Name" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                            <Input label="Email" type="email" placeholder="Email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+                            <Input label="Password" type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 disabled:opacity-50">{loading ? 'Creating...' : 'Create Account'}</motion.button>
+                            <button type="button" onClick={() => setMode('select-role')} className="w-full text-sm text-gray-500 dark:text-gray-400 mt-2">Back</button>
+                        </form>
+                    )}
+
+                    {mode === 'signup-designer' && (
+                        <form onSubmit={handleSignupSubmit('designer')} className="space-y-4">
+                            <h4 className="font-bold text-lg mb-4 dark:text-white">Create Designer Profile</h4>
+                            
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <Input label="Full Name" placeholder="e.g. Jane Doe" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+                                <Input label="Age" type="number" placeholder="28" value={formData.age} onChange={e => setFormData({...formData, age: e.target.value})} required />
+                            </div>
+
+                            <Input label="Email" type="email" placeholder="Email Address" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} required />
+                            <Input label="Password" type="password" placeholder="Password" value={formData.password} onChange={e => setFormData({...formData, password: e.target.value})} required />
+
+                            <div className="grid md:grid-cols-2 gap-4">
+                                <Input label="Experience (Years)" type="number" placeholder="5" value={formData.experience} onChange={e => setFormData({...formData, experience: e.target.value})} required />
+                                <Input label="Total Projects" type="number" placeholder="12" value={formData.totalProjects} onChange={e => setFormData({...formData, totalProjects: e.target.value})} required />
+                            </div>
+
+                            <Input label="Hourly Rate ($)" type="number" placeholder="150" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required />
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Professional Bio</label>
+                                <textarea 
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white outline-none focus:border-indigo-500 h-24 resize-none" 
+                                    placeholder="Tell clients what you do..." 
+                                    onChange={e => setFormData({...formData, bio: e.target.value})}
+                                    required
+                                ></textarea>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Upload Portfolio (Preview)</label>
+                                <div 
+                                    onClick={() => fileInputRef.current.click()}
+                                    className="border-2 border-dashed border-gray-300 dark:border-slate-600 rounded-xl p-6 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors"
+                                >
+                                    <ImageIcon className="w-8 h-8 mb-2" />
+                                    <span className="text-sm">Click to upload works</span>
+                                </div>
+                                <input 
+                                    type="file" 
+                                    multiple 
+                                    accept="image/*" 
+                                    ref={fileInputRef} 
+                                    className="hidden" 
+                                    onChange={handleFileChange}
+                                />
+                                {portfolioFiles.length > 0 && (
+                                    <div className="flex gap-2 mt-4 overflow-x-auto pb-2 custom-scrollbar">
+                                        {portfolioFiles.map((src, idx) => (
+                                            <div key={idx} className="relative w-16 h-16 shrink-0 group">
+                                                <img src={src} className="w-full h-full object-cover rounded-lg border border-gray-200 dark:border-slate-600" />
+                                                <button 
+                                                    type="button" 
+                                                    onClick={() => removeFile(idx)} 
+                                                    className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                >
+                                                    <X className="w-3 h-3"/>
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} disabled={loading} className="w-full py-3 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 disabled:opacity-50">{loading ? 'Creating Profile...' : 'Create Profile'}</motion.button>
+                            <button type="button" onClick={() => setMode('select-role')} className="w-full text-sm text-gray-500 dark:text-gray-400 mt-2">Back</button>
+                        </form>
+                    )}
+                </Modal>
+            );
+        };
+
+        // --- AI Estimator ---
+        const AIEstimator = ({ isOpen, onClose }) => {
+            const [step, setStep] = useState(1);
+            const [calculating, setCalculating] = useState(false);
+            const [result, setResult] = useState(null);
+            const [inputs, setInputs] = useState({ room: 'Living Room', quality: 'Standard', sqft: 250 });
+
+            const calculate = () => {
+                setCalculating(true);
+                setTimeout(() => {
+                    const base = inputs.sqft * (inputs.quality === 'Luxury' ? 150 : inputs.quality === 'Standard' ? 80 : 40);
+                    setResult(base);
+                    setCalculating(false);
+                    setStep(2);
+                }, 1500);
+            };
+
+            return (
+                <Modal isOpen={isOpen} onClose={() => { onClose(); setStep(1); setResult(null); }} title="AI Price Estimator">
+                    {step === 1 ? (
+                        <div className="space-y-4">
+                            <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-xl flex gap-3">
+                                <Bot className="w-6 h-6 text-purple-600 dark:text-purple-400 shrink-0" />
+                                <div className="text-sm text-purple-800 dark:text-purple-200">
+                                    Our AI analyzes current market rates to estimate your budget.
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Room Type</label>
+                                <select className="w-full p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white outline-none" 
+                                    value={inputs.room} onChange={e => setInputs({...inputs, room: e.target.value})}>
+                                    <option>Living Room</option>
+                                    <option>Kitchen</option>
+                                    <option>Bedroom</option>
+                                    <option>Bathroom</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Quality Level</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {['Budget', 'Standard', 'Luxury'].map(q => (
+                                        <button key={q} onClick={() => setInputs({...inputs, quality: q})}
+                                            className={`py-3 rounded-xl border font-bold text-sm transition-colors ${inputs.quality === q ? 'border-purple-600 bg-purple-50 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300' : 'border-gray-200 dark:border-slate-700 dark:text-gray-300'}`}>
+                                            {q}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Area (Sq Ft)</label>
+                                <input type="number" value={inputs.sqft} onChange={e => setInputs({...inputs, sqft: e.target.value})} 
+                                    className="w-full p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white outline-none" />
+                            </div>
+                            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={calculate} disabled={calculating} className="w-full py-4 ai-gradient text-white rounded-xl font-bold mt-4 flex justify-center items-center gap-2">
+                                {calculating ? <Loader2 className="animate-spin" /> : <><Sparkles className="w-4 h-4"/> Calculate Estimate</>}
+                            </motion.button>
+                        </div>
+                    ) : (
+                        <div className="text-center py-6">
+                            <h3 className="text-gray-500 dark:text-gray-400 font-medium mb-1">Estimated Budget</h3>
+                            <div className="text-4xl font-extrabold text-gray-900 dark:text-white mb-6">${(result * 0.9).toLocaleString()} - ${(result * 1.1).toLocaleString()}</div>
+                            <button onClick={() => setStep(1)} className="text-indigo-600 dark:text-indigo-400 font-bold hover:underline">Calculate Another</button>
+                        </div>
+                    )}
+                </Modal>
+            );
+        };
+
+        // --- Subscription Modal ---
+        const SubscriptionModal = ({ isOpen, onClose, onSubscribe }) => {
+            const [processingPlan, setProcessingPlan] = useState(null);
+
+            const handleChoose = (planName) => {
+                setProcessingPlan(planName);
+                setTimeout(() => {
+                    onSubscribe(planName);
+                    setProcessingPlan(null);
+                }, 1500);
+            };
+
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title="Unlock AI Superpowers" maxWidth="max-w-4xl">
+                    <div className="grid md:grid-cols-3 gap-6 p-2">
+                        {[
+                            { name: 'Free', price: '0', features: ['Browse Designers', 'Basic Search', 'View Profiles'] },
+                            { name: 'Pro AI', price: '29', features: ['Unlimited AI Estimates', 'Advanced Comparison', 'Priority Booking', 'AI Style Match'], popular: true },
+                            { name: 'Business', price: '99', features: ['All Pro Features', 'Dedicated Support', 'Team Accounts', 'API Access'] }
+                        ].map(plan => (
+                            <motion.div 
+                                key={plan.name} 
+                                whileHover={{ scale: 1.03 }}
+                                className={`relative p-6 rounded-2xl border ${plan.popular ? 'border-purple-500 bg-purple-50/50 dark:bg-purple-900/20 shadow-xl scale-105' : 'border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800'}`}
+                            >
+                                {plan.popular && <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold">MOST POPULAR</div>}
+                                <h3 className="text-xl font-bold mb-2 dark:text-white">{plan.name}</h3>
+                                <div className="text-3xl font-bold mb-6 dark:text-white">${plan.price}<span className="text-sm text-gray-500 dark:text-gray-400 font-normal">/mo</span></div>
+                                <ul className="space-y-3 mb-8">
+                                    {plan.features.map(f => (
+                                        <li key={f} className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                                            <CheckCircle className={`w-4 h-4 ${plan.popular ? 'text-purple-600 dark:text-purple-400' : 'text-gray-400'}`} /> {f}
+                                        </li>
+                                    ))}
+                                </ul>
+                                <button 
+                                    onClick={() => handleChoose(plan.name)}
+                                    disabled={!!processingPlan}
+                                    className={`w-full py-3 rounded-xl font-bold transition-colors flex items-center justify-center gap-2 ${plan.popular ? 'bg-purple-600 text-white hover:bg-purple-700' : 'bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-white hover:bg-gray-200 dark:hover:bg-slate-600'}`}
+                                >
+                                    {processingPlan === plan.name ? <Loader2 className="w-4 h-4 animate-spin"/> : `Choose ${plan.name}`}
+                                </button>
+                            </motion.div>
+                        ))}
+                    </div>
+                </Modal>
+            );
+        };
+
+        // --- Comparison Modal ---
+        const ComparisonModal = ({ isOpen, onClose, designers, onRemove }) => {
+            const [analyzing, setAnalyzing] = useState(false);
+            const [aiAnalysis, setAiAnalysis] = useState(null);
+
+            useEffect(() => {
+                // Reset analysis when modal opens or designers change
+                if (!isOpen) {
+                    setAiAnalysis(null);
+                    setAnalyzing(false);
+                }
+            }, [isOpen, designers]);
+
+            const generateComparison = async () => {
+                setAnalyzing(true);
+                const prompt = `Compare these interior designers based on their data and suggest who might be best for a modern, cost-effective renovation: 
+                ${designers.map(d => `${d.realName}: ${d.experienceYears} yrs exp, $${d.hourlyRate}/hr, ${d.totalProjects} projects, ${d.rating} stars`).join(' vs ')}.
+                Keep it short and decisive.`;
+
+                try {
+                    if (genAI && apiKey) {
+                         const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
+                         const result = await model.generateContent(prompt);
+                         setAiAnalysis(result.response.text());
+                    } else {
+                        // Mock response if no key
+                         await new Promise(r => setTimeout(r, 2000));
+                         setAiAnalysis(`Based on the data, **${designers[0].realName}** appears to be the better value option given their lower hourly rate ($${designers[0].hourlyRate}) combined with a strong rating of ${designers[0].rating}. However, if experience is a priority, check the total projects completed.`);
+                    }
+                } catch (e) {
+                    setAiAnalysis("AI Comparison unavailable. Please check API key.");
+                } finally {
+                    setAnalyzing(false);
+                }
+            };
+
+            if(!isOpen) return null;
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title="Compare Designers" maxWidth="max-w-4xl">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left mb-6">
+                            <thead>
+                                <tr>
+                                    <th className="p-4 min-w-[150px] dark:text-gray-300">Feature</th>
+                                    {designers.map(d => (
+                                        <th key={d.id} className="p-4 min-w-[200px] relative group">
+                                            <button onClick={() => onRemove(d.id)} className="absolute top-2 right-2 p-1 bg-red-100 text-red-500 rounded-full hover:bg-red-200 opacity-0 group-hover:opacity-100 transition-opacity"><X className="w-4 h-4"/></button>
+                                            <div className="flex flex-col items-center text-center">
+                                                <img src={d.avatar} className="w-16 h-16 rounded-full object-cover mb-2 border-2 border-white dark:border-slate-700 shadow-md"/>
+                                                <span className="font-bold text-lg dark:text-white">{d.realName}</span>
+                                            </div>
+                                        </th>
+                                    ))}
+                                    {designers.length < 2 && <th className="p-4 text-gray-400 font-normal italic text-center">Select another to compare</th>}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-100 dark:divide-slate-700">
+                                <tr><td className="p-4 font-bold text-gray-500 dark:text-gray-400">Hourly Rate</td>{designers.map(d => <td key={d.id} className="p-4 text-center font-bold dark:text-white">${d.hourlyRate}/hr</td>)}</tr>
+                                <tr><td className="p-4 font-bold text-gray-500 dark:text-gray-400">Age</td>{designers.map(d => <td key={d.id} className="p-4 text-center dark:text-white">{d.age} Years</td>)}</tr>
+                                <tr><td className="p-4 font-bold text-gray-500 dark:text-gray-400">Experience</td>{designers.map(d => <td key={d.id} className="p-4 text-center dark:text-white">{d.experienceYears} Years</td>)}</tr>
+                                <tr><td className="p-4 font-bold text-gray-500 dark:text-gray-400">Total Projects</td>{designers.map(d => <td key={d.id} className="p-4 text-center dark:text-white">{d.totalProjects}</td>)}</tr>
+                                <tr><td className="p-4 font-bold text-gray-500 dark:text-gray-400">Rating</td>{designers.map(d => <td key={d.id} className="p-4 text-center flex justify-center items-center gap-1 dark:text-white"><Star className="w-4 h-4 text-yellow-400 fill-current"/> {d.rating}</td>)}</tr>
+                            </tbody>
+                        </table>
+
+                        {designers.length > 1 && (
+                            <div className="bg-indigo-50 dark:bg-slate-800 rounded-2xl p-6">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-2">
+                                        <div className="bg-indigo-600 text-white p-2 rounded-lg"><Lightbulb className="w-5 h-5"/></div>
+                                        <h4 className="font-bold text-lg dark:text-white">AI Recommendation</h4>
+                                    </div>
+                                    <button 
+                                        onClick={generateComparison}
+                                        disabled={analyzing}
+                                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
+                                    >
+                                        {analyzing ? <Loader2 className="w-4 h-4 animate-spin"/> : <><Sparkles className="w-4 h-4"/> Ask AI to Compare</>}
+                                    </button>
+                                </div>
+                                {aiAnalysis ? (
+                                    <div className="prose dark:prose-invert text-sm text-gray-600 dark:text-gray-300 leading-relaxed bg-white dark:bg-slate-900 p-4 rounded-xl border border-indigo-100 dark:border-slate-700">
+                                        {aiAnalysis}
+                                    </div>
+                                ) : (
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 italic">Click "Ask AI to Compare" to get a detailed analysis of these professionals.</p>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </Modal>
+            );
+        };
+
+        // --- Chatbot ---
+        const ChatBot = () => {
+            const [open, setOpen] = useState(false);
+            const [messages, setMessages] = useState([{ role: 'ai', text: 'Hi! I am Decomatch AI. Ask me about styles, designers, or budget estimates.' }]);
+            const [input, setInput] = useState('');
+            const [loading, setLoading] = useState(false);
+
+            const send = async () => {
+                if(!input.trim()) return;
+                const userMsg = input;
+                setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+                setInput('');
+                setLoading(true);
+
+                try {
+                    // Check if genAI is available
+                    if (!genAI) {
+                        throw new Error("API Key missing");
+                    }
+                    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
+                    const result = await model.generateContent(userMsg);
+                    const response = await result.response;
+                    const text = response.text();
+                    setMessages(prev => [...prev, { role: 'ai', text }]);
+                } catch (error) {
+                    let errMsg = "I'm having trouble connecting right now.";
+                    if (!apiKey) errMsg = "Please configure your API Key in the code to chat.";
+                    setMessages(prev => [...prev, { role: 'ai', text: errMsg }]);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            return (
+                <div className="fixed bottom-6 right-6 z-[90] flex flex-col items-end">
+                    <AnimatePresence>
+                    {open && (
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20, scale: 0.9 }}
+                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                            exit={{ opacity: 0, y: 20, scale: 0.9 }}
+                            className="mb-4 w-80 bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-slate-700 overflow-hidden"
+                        >
+                            <div className="bg-gray-900 p-4 text-white flex justify-between items-center">
+                                <div className="flex items-center gap-2 font-bold"><Bot className="w-5 h-5"/> Decomatch AI</div>
+                                <button onClick={() => setOpen(false)}><X className="w-4 h-4"/></button>
+                            </div>
+                            <div className="h-64 overflow-y-auto p-4 bg-gray-50 dark:bg-slate-800 space-y-3 custom-scrollbar">
+                                {messages.map((m, i) => (
+                                    <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                        <div className={`max-w-[85%] p-3 rounded-xl text-sm ${m.role === 'user' ? 'bg-indigo-600 text-white rounded-br-none' : 'bg-white dark:bg-slate-700 border border-gray-200 dark:border-slate-600 text-gray-700 dark:text-gray-200 rounded-bl-none'}`}>
+                                            {m.text}
+                                        </div>
+                                    </div>
+                                ))}
+                                {loading && <div className="flex justify-start"><div className="bg-white dark:bg-slate-700 p-3 rounded-xl border border-gray-200 dark:border-slate-600"><Loader2 className="w-4 h-4 animate-spin text-gray-500 dark:text-gray-400"/></div></div>}
+                            </div>
+                            <div className="p-3 bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 flex gap-2">
+                                <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} placeholder="Ask anything..." className="flex-1 text-sm outline-none bg-transparent dark:text-white" />
+                                <button onClick={send} className="text-indigo-600 dark:text-indigo-400 font-bold"><ArrowRight className="w-5 h-5"/></button>
+                            </div>
+                        </motion.div>
+                    )}
+                    </AnimatePresence>
+                    <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => setOpen(!open)} 
+                        className="w-14 h-14 rounded-full ai-gradient text-white flex items-center justify-center shadow-lg"
+                    >
+                        <MessageSquare className="w-7 h-7" />
+                    </motion.button>
+                </div>
+            );
+        };
+
+        // --- NEW: Sidebar Navigation ---
+        const Sidebar = ({ isOpen, onClose, onNavigate }) => {
+            return (
+                <AnimatePresence>
+                    {isOpen && (
+                        <>
+                            {/* Overlay */}
+                            <motion.div 
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" 
+                                onClick={onClose}
+                            />
+                            {/* Drawer */}
+                            <motion.div 
+                                initial={{ x: "-100%" }}
+                                animate={{ x: 0 }}
+                                exit={{ x: "-100%" }}
+                                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                                className="fixed top-0 left-0 h-full w-72 bg-white dark:bg-slate-900 z-[101] shadow-2xl border-r border-gray-100 dark:border-slate-800 flex flex-col"
+                            >
+                                <div className="p-6 border-b border-gray-100 dark:border-slate-800 flex justify-between items-center">
+                                    <span className="font-bold text-xl dark:text-white">Menu</span>
+                                    <button onClick={onClose} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full text-gray-500 dark:text-gray-400"><X className="w-5 h-5"/></button>
+                                </div>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-4 mt-2">Tools</div>
+                                    <button onClick={() => onNavigate('estimator')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-3 text-gray-700 dark:text-gray-200 font-medium">
+                                        <Calculator className="w-5 h-5 text-indigo-500"/> AI Estimator
+                                    </button>
+                                    <button onClick={() => onNavigate('compare')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-3 text-gray-700 dark:text-gray-200 font-medium">
+                                        <Split className="w-5 h-5 text-blue-500"/> Compare
+                                    </button>
+
+                                    <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-4 mt-6">Platform</div>
+                                    <button onClick={() => onNavigate('pricing')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-3 text-gray-700 dark:text-gray-200 font-medium">
+                                        <Crown className="w-5 h-5 text-yellow-500"/> Pricing & Plans
+                                    </button>
+                                    <button onClick={() => onNavigate('settings')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-3 text-gray-700 dark:text-gray-200 font-medium">
+                                        <Settings className="w-5 h-5 text-gray-500"/> Settings
+                                    </button>
+                                     <button onClick={() => onNavigate('help')} className="w-full text-left px-4 py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-800 flex items-center gap-3 text-gray-700 dark:text-gray-200 font-medium">
+                                        <HelpCircle className="w-5 h-5 text-gray-500"/> Help & Support
+                                    </button>
+                                </div>
+                                <div className="p-4 border-t border-gray-100 dark:border-slate-800">
+                                     <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl">
+                                        <div className="flex items-center gap-2 font-bold text-indigo-700 dark:text-indigo-300 mb-1"><Sparkles className="w-4 h-4"/> Pro Tip</div>
+                                        <p className="text-xs text-indigo-600 dark:text-indigo-400">Use our AI Estimator to get instant renovation costs.</p>
+                                     </div>
+                                </div>
+                            </motion.div>
+                        </>
+                    )}
+                </AnimatePresence>
+            );
+        };
+
+        // --- Footer ---
+        const Footer = ({ onLinkClick }) => (
+            <footer className="bg-white dark:bg-slate-900 border-t border-gray-100 dark:border-slate-800 pt-16 pb-8 mt-auto">
+                <div className="max-w-7xl mx-auto px-4">
+                    <div className="grid md:grid-cols-4 gap-8 mb-12">
+                        <div className="col-span-1 md:col-span-1">
+                            <div className="flex items-center gap-2 mb-4">
+                                <div className="w-8 h-8 ai-gradient rounded-lg flex items-center justify-center text-white font-bold">D</div>
+                                <span className="font-bold text-xl dark:text-white">Decomatch</span>
+                            </div>
+                            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Pioneering AI-driven interior design solutions for modern living spaces.</p>
+                            <div className="flex gap-4 text-gray-400">
+                                <Twitter onClick={onLinkClick} className="w-5 h-5 hover:text-indigo-600 cursor-pointer transition-colors"/>
+                                <Instagram onClick={onLinkClick} className="w-5 h-5 hover:text-indigo-600 cursor-pointer transition-colors"/>
+                                <Linkedin onClick={onLinkClick} className="w-5 h-5 hover:text-indigo-600 cursor-pointer transition-colors"/>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-4 dark:text-white">Platform</h4>
+                            <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Find Designers</li>
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">AI Estimator</li>
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Pricing</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-4 dark:text-white">Company</h4>
+                            <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">About Us</li>
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Careers</li>
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Blog</li>
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Contact</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 className="font-bold mb-4 dark:text-white">Legal</h4>
+                            <ul className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Privacy Policy</li>
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Terms of Service</li>
+                                <li onClick={onLinkClick} className="hover:text-indigo-600 cursor-pointer">Cookie Policy</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div className="pt-8 border-t border-gray-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-center text-sm text-gray-400">
+                        <div>&copy; 2025 Decomatch AI Inc. All rights reserved.</div>
+                        <div className="flex gap-6 mt-4 md:mt-0">
+                            <span onClick={onLinkClick} className="flex items-center gap-1 cursor-pointer hover:text-gray-900 dark:hover:text-white"><Globe className="w-4 h-4"/> English (US)</span>
+                        </div>
+                    </div>
+                </div>
+            </footer>
+        );
+
+        // --- NEW: Booking Modal ---
+        const BookingModal = ({ isOpen, onClose, designer, onSubmit }) => {
+            const [date, setDate] = useState('');
+            const [time, setTime] = useState('');
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (!date || !time) return;
+                onSubmit(designer.id, date, time);
+                setDate('');
+                setTime('');
+            };
+
+            if (!isOpen) return null;
+
+            return (
+                <Modal isOpen={isOpen} onClose={onClose} title="Book a Consultation" zIndex="z-[150]">
+                    <form onSubmit={handleSubmit} className="space-y-4">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                            Schedule a 1-on-1 consultation with <span className="font-bold">{designer?.realName}</span>.
+                        </p>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Select Date</label>
+                            <input
+                                type="date"
+                                required
+                                className="w-full p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white outline-none focus:border-indigo-500"
+                                value={date}
+                                onChange={(e) => setDate(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 dark:text-gray-300 mb-1">Select Time</label>
+                            <input
+                                type="time"
+                                required
+                                className="w-full p-3 rounded-xl border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-gray-900 dark:text-white outline-none focus:border-indigo-500"
+                                value={time}
+                                onChange={(e) => setTime(e.target.value)}
+                            />
+                        </div>
+                        <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} type="submit" className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg dark:shadow-none mt-6">
+                            Confirm Booking
+                        </motion.button>
+                    </form>
+                </Modal>
+            );
+        };
+
+
+        // --- Main App ---
+        const App = () => {
+            const [user, setUser] = useState(null); 
+            const [userPlan, setUserPlan] = useState('Free');
+            const [designers, setDesigners] = useState(INITIAL_DESIGNERS);
+            const [filteredDesigners, setFilteredDesigners] = useState(INITIAL_DESIGNERS);
+            const [searchLoc, setSearchLoc] = useState('');
+            const [darkMode, setDarkMode] = useState(false);
+            
+            // Modal States
+            const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+            const [isAuthOpen, setIsAuthOpen] = useState(false);
+            const [isEstimatorOpen, setIsEstimatorOpen] = useState(false);
+            const [isSubOpen, setIsSubOpen] = useState(false);
+            const [isCompareOpen, setIsCompareOpen] = useState(false);
+            const [isRedesignerOpen, setIsRedesignerOpen] = useState(false);
+            const [isReviewOpen, setIsReviewOpen] = useState(false);
+            const [isBookingOpen, setIsBookingOpen] = useState(false); // New state for booking modal
+            
+            const [profileDesigner, setProfileDesigner] = useState(null);
+            const [reviewDesigner, setReviewDesigner] = useState(null);
+            const [bookingDesigner, setBookingDesigner] = useState(null); // New state for the designer being booked
+            const [compareList, setCompareList] = useState([]);
+            const [toast, setToast] = useState(null);
+
+            const toggleDarkMode = () => {
+                setDarkMode(!darkMode);
+            };
+            
+            const handleSidebarNavigate = (action) => {
+                setIsSidebarOpen(false);
+                if (action === 'estimator') setIsEstimatorOpen(true);
+                if (action === 'pricing') setIsSubOpen(true);
+                if (action === 'redesign') setIsRedesignerOpen(true);
+                if (action === 'compare') setIsCompareOpen(true);
+                if (action === 'settings' || action === 'help') showToast("Feature coming soon!", "success");
+            };
+
+            const handleSubscribe = (plan) => {
+                setUserPlan(plan);
+                setIsSubOpen(false);
+                showToast(`Welcome to ${plan}! Account upgraded.`);
+            };
+            
+            // Fetch designers from Supabase
+            useEffect(() => {
+                const fetchDesigners = async () => {
+                    if (!supabase) return;
+                    
+                    const { data, error } = await supabase
+                        .from('designers')
+                        .select('*');
+                        
+                    if (!error && data && data.length > 0) {
+                        // Transform DB data to match app structure if needed
+                        const formattedData = data.map(d => ({
+                            id: d.id,
+                            realName: d.real_name,
+                            age: d.age,
+                            experienceYears: d.experience_years,
+                            hourlyRate: d.hourly_rate,
+                            fullDesignFee: d.full_design_fee,
+                            totalProjects: d.total_projects,
+                            style: d.style || 'Modern',
+                            rating: d.rating || 5.0,
+                            reviews: d.reviews || 0,
+                            location: d.location || 'Remote',
+                            avatar: d.avatar || `https://i.pravatar.cc/150?u=${d.id}`,
+                            cover: d.cover || getRealImage(10),
+                            portfolio: d.portfolio || [getRealImage(11), getRealImage(12)],
+                            verified: d.verified,
+                            bio: d.bio,
+                            availabilityStatus: 'Available' // Default
+                        }));
+                        setDesigners(formattedData);
+                    }
+                };
+                
+                fetchDesigners();
+            }, []);
+
+            useEffect(() => {
+                if(!searchLoc) {
+                    setFilteredDesigners(designers);
+                } else {
+                    const term = searchLoc.toLowerCase();
+                    setFilteredDesigners(designers.filter(d => 
+                        d.location.toLowerCase().includes(term) || d.realName.toLowerCase().includes(term)
+                    ));
+                }
+            }, [searchLoc, designers]);
+
+            const showToast = (msg, type='success') => {
+                setToast({ message: msg, type });
+                setTimeout(() => setToast(null), 3000);
+            };
+
+            const toggleCompare = (designer) => {
+                if(compareList.find(d => d.id === designer.id)) {
+                    setCompareList(compareList.filter(d => d.id !== designer.id));
+                } else {
+                    if(compareList.length >= 3) {
+                        showToast("Max 3 designers for comparison", "error");
+                        return;
+                    }
+                    setCompareList([...compareList, designer]);
+                    showToast("Added to comparison");
+                }
+            };
+
+            const handleAuthLogin = (userData) => {
+                setUser(userData);
+                setIsAuthOpen(false);
+                if(userData.role === 'designer') {
+                    // Update designers list if it's a new designer sign up
+                    if (userData.id === 9999 || !designers.find(d => d.id === userData.id)) {
+                         setDesigners(prev => [userData, ...prev]);
+                    }
+                    showToast(`Welcome ${userData.realName}, your profile is live!`);
+                } else {
+                    showToast(`Welcome back, ${userData.realName}`);
+                }
+            };
+
+            const handleFooterLink = () => {
+                showToast("Page under construction. Coming soon!", "success");
+            };
+
+            const handleReviewSubmit = async (id, rating, comment) => {
+                // Supabase Insert
+                if (supabase) {
+                    const { error } = await supabase
+                        .from('reviews')
+                        .insert([
+                            {
+                                designer_id: id,
+                                rating: rating,
+                                comment: comment,
+                                user_id: user?.id // Only works if user logged in via supabase
+                            }
+                        ]);
+                    if (error) console.error("Review Insert Error", error);
+                }
+
+                // Optimistic UI Update
+                const updatedDesigners = designers.map(d => {
+                    if(d.id === id) {
+                        const current = parseFloat(d.rating);
+                        const count = d.reviews;
+                        const newAvg = ((current * count + rating) / (count + 1)).toFixed(1);
+                        return { ...d, rating: newAvg, reviews: count + 1 };
+                    }
+                    return d;
+                });
+                
+                setDesigners(updatedDesigners);
+                
+                // LIVE UPDATE: Sync profile view
+                if (profileDesigner && profileDesigner.id === id) {
+                    setProfileDesigner(updatedDesigners.find(d => d.id === id));
+                }
+
+                setIsReviewOpen(false);
+                setReviewDesigner(null);
+                showToast("Review submitted successfully!");
+            };
+
+            const openReviewModal = (designer) => {
+                setReviewDesigner(designer);
+                setIsReviewOpen(true);
+            };
+
+            const handleBookingSubmit = async (designerId, date, time) => {
+                // Here you would typically send this data to your backend (e.g., Supabase)
+                console.log(`Booking confirmed for designer ${designerId} on ${date} at ${time}`);
+                
+                // For now, just show a success message and close the modal
+                setIsBookingOpen(false);
+                setBookingDesigner(null);
+                showToast("Booking request sent! The designer will confirm shortly.", "success");
+            };
+
+            const openBookingModal = (designer) => {
+                setBookingDesigner(designer);
+                setIsBookingOpen(true);
+            };
+
+            return (
+                <div className={`${darkMode ? 'dark' : ''}`}>
+                    <div className="min-h-screen bg-gray-50 dark:bg-slate-950 text-slate-900 dark:text-white font-sans antialiased flex flex-col transition-colors duration-300">
+                        
+                        {/* Navigation */}
+                        <nav className="fixed w-full z-50 top-0 pt-4 px-4">
+                            <div className="max-w-7xl mx-auto glass-panel dark:bg-slate-900/90 dark:border-slate-800 rounded-full px-6 py-3 shadow-sm flex justify-between items-center relative">
+                                
+                                {/* Left: Hamburger Menu */}
+                                <div className="flex items-center">
+                                    <button onClick={() => setIsSidebarOpen(true)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                                        <Menu className="w-6 h-6 text-gray-700 dark:text-gray-200" />
+                                    </button>
+                                </div>
+
+                                {/* Center: Logo (Absolute Positioned) */}
+                                <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo(0,0)}>
+                                    <div className="w-8 h-8 ai-gradient rounded-lg flex items-center justify-center text-white font-bold"><Sparkles className="w-5 h-5"/></div>
+                                    <span className="font-bold text-lg tracking-tight dark:text-white">Decomatch <span className="ai-text">AI</span></span>
+                                </div>
+
+                                {/* Right: Controls & Auth */}
+                                <div className="flex items-center gap-2 sm:gap-4">
+                                    {userPlan !== 'Free' && (
+                                        <span className="hidden sm:inline-block px-2 py-0.5 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-[10px] font-bold rounded-full uppercase tracking-wider">
+                                            {userPlan === 'Pro AI' ? 'PRO' : 'BIZ'}
+                                        </span>
+                                    )}
+                                    <button onClick={toggleDarkMode} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors">
+                                        {darkMode ? <Sun className="w-5 h-5 text-yellow-400" /> : <Moon className="w-5 h-5 text-slate-600" />}
+                                    </button>
+                                    
+                                    {user ? (
+                                        <div className="flex items-center gap-3 pl-2 border-l border-gray-200 dark:border-slate-700">
+                                            <img src={user.avatar} className="w-8 h-8 sm:w-9 sm:h-9 rounded-full border border-gray-200 dark:border-slate-700" />
+                                            <div className="hidden md:block text-right">
+                                                <div className="text-xs font-bold dark:text-white">{user.realName}</div>
+                                            </div>
+                                            <button onClick={() => setUser(null)} className="p-2 hover:bg-gray-100 dark:hover:bg-slate-800 rounded-full"><LogOut className="w-4 h-4 text-red-500" /></button>
+                                        </div>
+                                    ) : (
+                                        <button onClick={() => setIsAuthOpen(true)} className="px-5 py-2 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-bold rounded-full hover:bg-gray-800 dark:hover:bg-gray-200 shadow-lg ml-2">Sign In</button>
+                                    )}
+                                </div>
+                            </div>
+                        </nav>
+
+                        {/* Sidebar Component */}
+                        <Sidebar 
+                            isOpen={isSidebarOpen} 
+                            onClose={() => setIsSidebarOpen(false)} 
+                            onNavigate={handleSidebarNavigate} 
+                        />
+
+                        {/* Hero Section */}
+                        <header className="relative pt-32 pb-20 px-4 overflow-hidden">
+                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-indigo-100/50 dark:bg-indigo-900/20 rounded-full blur-3xl -z-10"></div>
+                            <div className="max-w-4xl mx-auto text-center relative z-10">
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.2 }}
+                                    className="inline-flex items-center gap-2 bg-white/60 dark:bg-slate-800/60 backdrop-blur border border-white/50 dark:border-slate-700 px-3 py-1 rounded-full text-xs font-bold text-indigo-600 dark:text-indigo-400 mb-6 shadow-sm"
+                                >
+                                    <Bot className="w-3 h-3" /> AI-Powered Design Matching
+                                </motion.div>
+                                <motion.h1 
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.3 }}
+                                    className="text-5xl md:text-7xl font-extrabold text-slate-900 dark:text-white mb-6 leading-[1.1]"
+                                >
+                                    Reimagine your home <br/> with <span className="ai-text">Generative AI.</span>
+                                </motion.h1>
+                                <motion.p 
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: 0.4 }}
+                                    className="text-gray-500 dark:text-gray-400 text-lg mb-10 max-w-2xl mx-auto"
+                                >
+                                    Use our AI Estimator to calculate costs instantly, then hire the perfect professional to make it reality.
+                                </motion.p>
+                                
+                                <motion.div 
+                                    initial={{ opacity: 0, scale: 0.95 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    transition={{ delay: 0.5 }}
+                                    className="bg-white dark:bg-slate-800 p-2 rounded-full shadow-xl max-w-lg mx-auto flex items-center border border-gray-100 dark:border-slate-700"
+                                >
+                                    <div className="pl-4 text-gray-400"><MapPin className="w-5 h-5" /></div>
+                                    <input 
+                                        type="text" 
+                                        placeholder="Search designers by city..." 
+                                        className="flex-1 p-3 outline-none text-gray-700 dark:text-gray-200 bg-transparent placeholder:text-gray-400"
+                                        value={searchLoc}
+                                        onChange={(e) => setSearchLoc(e.target.value)}
+                                    />
+                                    <button className="bg-gray-900 dark:bg-indigo-600 hover:bg-gray-800 dark:hover:bg-indigo-700 text-white p-3 rounded-full transition-colors">
+                                        <Search className="w-5 h-5" />
+                                    </button>
+                                </motion.div>
+                            </div>
+                        </header>
+
+                        {/* Designer Grid */}
+                        <main className="max-w-7xl mx-auto px-4 pb-20 flex-grow w-full">
+                            <div className="flex justify-between items-end mb-8">
+                                <div>
+                                    <h2 className="text-2xl font-bold dark:text-white">Verified Professionals</h2>
+                                    <p className="text-gray-500 dark:text-gray-400 text-sm">Showing {filteredDesigners.length} designers in your area</p>
+                                </div>
+                            </div>
+
+                            <motion.div 
+                                variants={staggerContainer}
+                                initial="hidden"
+                                animate="visible"
+                                className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"
+                            >
+                                {filteredDesigners.map(designer => (
+                                    <motion.div 
+                                        key={designer.id} 
+                                        variants={fadeIn}
+                                        whileHover={{ y: -5 }}
+                                        className="bg-white dark:bg-slate-900 rounded-[24px] border border-gray-100 dark:border-slate-800 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden group flex flex-col h-full relative"
+                                    >
+                                        <div className="h-60 relative overflow-hidden">
+                                            <img src={designer.cover} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" onError={(e) => e.target.src = 'https://via.placeholder.com/400x300?text=Designer+Image'} />
+                                            <div className="absolute top-4 left-4 bg-white/90 dark:bg-slate-900/90 backdrop-blur px-2 py-1 rounded-lg text-xs font-bold flex items-center gap-1 shadow-sm text-slate-900 dark:text-white">
+                                                <Star className="w-3 h-3 text-yellow-500 fill-current" /> {designer.rating}
+                                            </div>
+                                        </div>
+
+                                        <div className="p-5 flex flex-col flex-1">
+                                            <div className="flex items-start justify-between mb-1">
+                                                <div>
+                                                    <h3 className="font-bold text-lg flex items-center gap-1 dark:text-white">
+                                                        {designer.realName}
+                                                        {designer.verified && <ShieldCheck className="w-4 h-4 text-blue-500" />}
+                                                    </h3>
+                                                    <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                                                        <MapPin className="w-3 h-3" /> {designer.location}
+                                                    </div>
+                                                </div>
+                                                <img src={designer.avatar} className="w-10 h-10 rounded-full border-2 border-white dark:border-slate-700 shadow-sm -mt-10" />
+                                            </div>
+
+                                            <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2 mb-4 mt-2">{designer.bio}</p>
+
+                                            <div className="flex flex-wrap gap-2 mb-4">
+                                                <span className="text-[10px] font-bold bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-gray-300 px-2 py-1 rounded-full">{designer.style}</span>
+                                                {designer.availabilityStatus === 'Available' ? (
+                                                    <span className="text-[10px] font-bold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-1 rounded-full flex items-center gap-1"><Zap className="w-3 h-3" /> Available</span>
+                                                ) : (
+                                                    <span className="text-[10px] font-bold bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-400 px-2 py-1 rounded-full">Busy</span>
+                                                )}
+                                            </div>
+
+                                            <div className="mt-auto pt-4 border-t border-gray-50 dark:border-slate-800 flex items-center justify-between gap-2">
+                                                <button 
+                                                    onClick={() => toggleCompare(designer)}
+                                                    className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${compareList.find(d => d.id === designer.id) ? 'bg-indigo-50 dark:bg-indigo-900/30 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400' : 'bg-white dark:bg-slate-800 border-gray-200 dark:border-slate-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700'}`}
+                                                >
+                                                    {compareList.find(d => d.id === designer.id) ? 'Comparing' : 'Compare'}
+                                                </button>
+                                                <button 
+                                                    onClick={() => setProfileDesigner(designer)}
+                                                    className="flex-1 py-2 bg-gray-900 dark:bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-gray-800 dark:hover:bg-indigo-700 transition-colors"
+                                                >
+                                                    Profile
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                ))}
+                            </motion.div>
+                        </main>
+
+                        <Footer onLinkClick={handleFooterLink} />
+
+                        {/* Chatbot & Modals */}
+                        <ChatBot />
+                        <AIEstimator isOpen={isEstimatorOpen} onClose={() => setIsEstimatorOpen(false)} />
+                        <SubscriptionModal 
+                            isOpen={isSubOpen} 
+                            onClose={() => setIsSubOpen(false)} 
+                            onSubscribe={handleSubscribe}
+                        />
+                        <ComparisonModal 
+                            isOpen={isCompareOpen} 
+                            onClose={() => setIsCompareOpen(false)} 
+                            designers={compareList} 
+                            onRemove={(id) => setCompareList(compareList.filter(d => d.id !== id))} 
+                        />
+                        <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} onLogin={handleAuthLogin} />
+                        
+                        <AnimatePresence>
+                        {profileDesigner && (
+                            <Modal isOpen={!!profileDesigner} onClose={() => setProfileDesigner(null)} title="Professional Profile">
+                                <div className="text-center">
+                                    <img src={profileDesigner.avatar} className="w-24 h-24 rounded-full mx-auto mb-4 object-cover border-4 border-white dark:border-slate-700 shadow-lg" />
+                                    <h2 className="text-2xl font-bold flex items-center justify-center gap-2 dark:text-white">
+                                        {profileDesigner.realName}
+                                        {profileDesigner.verified && <ShieldCheck className="w-6 h-6 text-blue-500" />}
+                                    </h2>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{profileDesigner.age} Years Old • {profileDesigner.experienceYears} Years Exp. • {profileDesigner.location}</p>
+                                    <p className="text-gray-600 dark:text-gray-300 mb-6 px-4">{profileDesigner.bio}</p>
+                                    
+                                    <div className="grid grid-cols-2 gap-4 mb-6">
+                                        <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-xl">
+                                            <div className="text-xs text-gray-400 uppercase font-bold">Projects</div>
+                                            <div className="font-bold text-lg dark:text-white">{profileDesigner.totalProjects}</div>
+                                        </div>
+                                        <div className="bg-gray-50 dark:bg-slate-800 p-3 rounded-xl">
+                                            <div className="text-xs text-gray-400 uppercase font-bold">Rating</div>
+                                            <div className="font-bold text-lg flex justify-center items-center gap-1 dark:text-white"><Star className="w-4 h-4 text-yellow-500 fill-current"/>{profileDesigner.rating}</div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mb-8 text-left">
+                                        <h3 className="font-bold text-gray-900 dark:text-white mb-3 flex items-center gap-2"><ImageIcon className="w-4 h-4"/> Portfolio Showcase</h3>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {profileDesigner.portfolio.map((img, i) => (
+                                                <motion.div 
+                                                    whileHover={{ scale: 1.05 }}
+                                                    key={i} 
+                                                    className="group relative aspect-video overflow-hidden rounded-xl cursor-pointer"
+                                                >
+                                                    <img src={img} className="w-full h-full object-cover transition-transform duration-500" alt={`Portfolio ${i}`} onError={(e) => e.target.src = 'https://via.placeholder.com/400x300?text=Portfolio+Image'} />
+                                                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors"></div>
+                                                </motion.div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {user && user.role === 'client' && (
+                                        <button 
+                                            onClick={() => openReviewModal(profileDesigner)}
+                                            className="w-full mb-3 py-3 border-2 border-indigo-600 dark:border-indigo-500 text-indigo-600 dark:text-indigo-400 rounded-xl font-bold hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors flex justify-center items-center gap-2"
+                                        >
+                                            <ThumbsUp className="w-5 h-5"/> Write a Review
+                                        </button>
+                                    )}
+
+                                    {/* Updated Schedule Tour Button */}
+                                    <button 
+                                        onClick={() => openBookingModal(profileDesigner)}
+                                        className="w-full py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 dark:shadow-none mb-2"
+                                    >
+                                        Schedule Tour
+                                    </button>
+                                    <button onClick={() => setProfileDesigner(null)} className="w-full py-3 text-gray-500 dark:text-gray-400 font-bold hover:text-gray-900 dark:hover:text-white">Close Profile</button>
+                                </div>
+                            </Modal>
+                        )}
+                        </AnimatePresence>
+
+                        <ReviewModal isOpen={isReviewOpen} onClose={() => setIsReviewOpen(false)} designer={reviewDesigner} onSubmit={handleReviewSubmit} />
+                        
+                        {/* New Booking Modal */}
+                        <BookingModal isOpen={isBookingOpen} onClose={() => setIsBookingOpen(false)} designer={bookingDesigner} onSubmit={handleBookingSubmit} />
+
+                        <AnimatePresence>
+                        {toast && <Toast key="toast" message={toast.message} type={toast.type} />}
+                        </AnimatePresence>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
